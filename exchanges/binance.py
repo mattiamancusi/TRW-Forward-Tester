@@ -1,11 +1,17 @@
 import json
-import os
 from binance.um_futures import UMFutures
-from logging_utils import sanitize_dict
-
+from pydantic import ValidationError
+from config.config import AppSettings, missing_field_names
+from utils.errors import MissingCredentialError
+from utils.logging_utils import sanitize_dict
 
 def place_order_binance(symbol, qty, data):
-    client = UMFutures(os.getenv('API_KEY'), os.getenv('API_SECRET'))
+    settings = AppSettings()
+    try:
+        credentials = settings.binance
+    except ValidationError as error:
+        raise MissingCredentialError(missing_field_names(error)) from error
+    client = UMFutures(credentials.API_KEY, credentials.API_SECRET)
     side = data['strategy']['order_action'].upper()
     leverage = int(data.get('leverage', 0))
     print(f"Preparing order for Binance: REAL - {side} {qty} {symbol} with leverage {leverage}")

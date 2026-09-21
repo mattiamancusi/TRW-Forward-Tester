@@ -4,7 +4,8 @@ from unittest.mock import patch
 from tests.test_app import build_webhook_payload
 
 
-@patch.dict(os.environ, {'WHITELISTED_IPS': '127.0.0.1', 'WEBHOOK_SECRET': ''})
+from config.config import EnvNames
+@patch.dict(os.environ, {EnvNames.WHITELISTED_IPS: '127.0.0.1'})
 @patch('app.execute_order')
 def test_webhook_bypass_when_secret_not_set(mock_execute_order, client):
     """
@@ -15,17 +16,20 @@ def test_webhook_bypass_when_secret_not_set(mock_execute_order, client):
     data = build_webhook_payload()
     data.pop('passphrase') # No passphrase provided
 
-    response = client.post(
-        '/webhook',
-        json=data,
-        headers={'X-Forwarded-For': '127.0.0.1'}
-    )
+    from app import app_settings
+
+    with patch.object(app_settings, EnvNames.WEBHOOK_SECRET, ''):
+        response = client.post(
+            '/webhook',
+            json=data,
+            headers={'X-Forwarded-For': '127.0.0.1'}
+        )
 
     assert response.status_code == 200
     assert response.json == {"code": "success", "message": "Order executed"}
     mock_execute_order.assert_called_once()
 
-@patch.dict(os.environ, {'WHITELISTED_IPS': '127.0.0.1', 'WEBHOOK_SECRET': 'test-secret'})
+@patch.dict(os.environ, {EnvNames.WHITELISTED_IPS: '127.0.0.1'})
 @patch('app.execute_order')
 def test_webhook_enforced_when_secret_is_set(mock_execute_order, client):
     """
@@ -35,11 +39,14 @@ def test_webhook_enforced_when_secret_is_set(mock_execute_order, client):
     data = build_webhook_payload()
     data.pop('passphrase')
 
-    response = client.post(
-        '/webhook',
-        json=data,
-        headers={'X-Forwarded-For': '127.0.0.1'}
-    )
+    from app import app_settings
+
+    with patch.object(app_settings, EnvNames.WEBHOOK_SECRET, 'test-secret'):
+        response = client.post(
+            '/webhook',
+            json=data,
+            headers={'X-Forwarded-For': '127.0.0.1'}
+        )
 
     assert response.status_code == 401
     mock_execute_order.assert_not_called()

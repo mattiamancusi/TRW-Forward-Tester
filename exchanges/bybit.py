@@ -1,14 +1,20 @@
 import json
-import os
 from pybit.unified_trading import HTTP
-from logging_utils import sanitize_dict
-
+from pydantic import ValidationError
+from config.config import AppSettings, missing_field_names
+from utils.errors import MissingCredentialError
+from utils.logging_utils import sanitize_dict
 
 def place_order_bybit(symbol, qty, data):
+    settings = AppSettings()
+    try:
+        credentials = settings.bybit
+    except ValidationError as error:
+        raise MissingCredentialError(missing_field_names(error)) from error
     session = HTTP(
         testnet=False,
-        api_key=os.getenv('API_KEY'),
-        api_secret=os.getenv('API_SECRET'),
+        api_key=credentials.API_KEY,
+        api_secret=credentials.API_SECRET,
     )
     side = data['strategy']['order_action'].upper().capitalize()
     leverage = float(data.get('leverage', 0))
